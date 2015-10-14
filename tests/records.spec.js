@@ -10,6 +10,18 @@ var records = require('../lib/records'),
     computation = require('../lib/computation'),
     SyncDocument = require('sync-document')
 
+var old_async
+function stub_computation ()
+{
+    old_async = computation.async
+    computation.async = sinon.stub()
+}
+
+function unstub_computation ()
+{
+    computation.async = old_async
+}
+
 
 describe('Record', function ()
 {
@@ -87,6 +99,9 @@ describe('WritableMixin', function ()
 
 describe('DumbRecord', function ()
 {
+    beforeEach(stub_computation)
+    afterEach(unstub_computation)
+    
     it('is a Record', function ()
     {
         var record = new DumbRecord()
@@ -111,6 +126,7 @@ describe('DumbRecord', function ()
         
         record.start()
         expect(record.error).to.equal('some error')
+        expect(computation.async).to.have.been.calledOnce
     })
     
     it('updates its fields if the get call succeeds', function ()
@@ -120,16 +136,6 @@ describe('DumbRecord', function ()
         
         record.start()
         expect(record.get('skidoo')).to.equal(23)
-    })
-    
-    it('calls computation.async() when the get call completes', function ()
-    {
-        computation.async = sinon.stub()
-        
-        var service = sinon.stub().callsArg(2),
-            record = new DumbRecord(service, { id: 'foo' })
-        
-        record.start()
         expect(computation.async).to.have.been.calledOnce
     })
 })
@@ -137,6 +143,9 @@ describe('DumbRecord', function ()
 
 describe('WatchRecord', function ()
 {
+    beforeEach(stub_computation)
+    afterEach(unstub_computation)
+    
     it('is a Record', function ()
     {
         var record = new WatchRecord()
@@ -194,6 +203,7 @@ describe('WatchRecord', function ()
         
         record.start()
         expect(record.error).to.equal('some error')
+        expect(computation.async).to.have.been.calledOnce
     })
     
     it('sets its channel property if the get call succeeds', function ()
@@ -218,6 +228,7 @@ describe('WatchRecord', function ()
         expect(handlers.initial).to.be.instanceof(Function)
         handlers.initial({ things: 'stuff' })
         expect(record.get('things')).to.equal('stuff')
+        expect(computation.async).to.have.been.calledOnce
     })
     
     it('sets a channel.update handler that updates fields', function ()
@@ -232,6 +243,7 @@ describe('WatchRecord', function ()
         expect(handlers.update).to.be.instanceof(Function)
         handlers.update({ things: 'stuff' })
         expect(record.get('things')).to.equal('stuff')
+        expect(computation.async).to.have.been.calledOnce
     })
     
     it('sets a channel.error handler that sets the error property', function ()
@@ -246,6 +258,7 @@ describe('WatchRecord', function ()
         expect(handlers.error).to.be.instanceof(Function)
         handlers.error('some error')
         expect(record.error).to.equal('some error')
+        expect(computation.async).to.have.been.calledOnce
     })
     
     it('sets a channel.delete handler that sets the deleted property', function ()
@@ -261,12 +274,16 @@ describe('WatchRecord', function ()
         expect(record.deleted).to.be.false
         handlers.delete()
         expect(record.deleted).to.be.true
+        expect(computation.async).to.have.been.calledOnce
     })
 })
 
 
 describe('SyncRecord', function ()
 {
+    beforeEach(stub_computation)
+    afterEach(unstub_computation)
+    
     it('is a WatchRecord', function ()
     {
         var record = new SyncRecord()
@@ -304,6 +321,7 @@ describe('SyncRecord', function ()
         
         record.start()
         expect(record.error).to.equal('some error')
+        expect(computation.async).to.have.been.calledOnce
     })
     
     it('sets its channel property if the get call succeeds', function ()
@@ -341,6 +359,7 @@ describe('SyncRecord', function ()
                 delta: { things: ['stuff', 0, 0] }
             }
         ])
+        expect(computation.async).to.have.been.calledOnce
     })
     
     it('sends edits on its channel when push() is called', function ()
@@ -380,6 +399,7 @@ describe('SyncRecord', function ()
         expect(record.syncdoc.pull.firstCall.args[0]).to.equal(3)
         expect(record.syncdoc.pull.secondCall.args[0]).to.equal(2)
         expect(record.syncdoc.pull.thirdCall.args[0]).to.equal(1)
+        expect(computation.async).to.have.been.calledOnce
     })
     
     it('emits a pull after receiving edits if there are pending edits', function ()
@@ -412,6 +432,7 @@ describe('SyncRecord', function ()
         expect(handlers.error).to.be.instanceof(Function)
         handlers.error('some error')
         expect(record.error).to.equal('some error')
+        expect(computation.async).to.have.been.calledOnce
     })
     
     it('sets a channel.delete handler that sets the deleted property', function ()
@@ -427,5 +448,6 @@ describe('SyncRecord', function ()
         expect(record.deleted).to.be.false
         handlers.delete()
         expect(record.deleted).to.be.true
+        expect(computation.async).to.have.been.calledOnce
     })
 })
