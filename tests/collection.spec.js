@@ -20,29 +20,32 @@ describe('Collection', function ()
     {
         it('can return a DumbRecord', function ()
         {
-            var things = new Collection(true),
+            var things = new Collection(true, { methods: { foo: function () { return 123 } } }),
                 record = things.get('123')
             
             expect(record).to.be.instanceof(records.DumbRecord)
             expect(record.get('id')).to.equal('123')
+            expect(record.foo()).to.equal(123)
         })
         
         it('can return a WatchRecord', function ()
         {
-            var things = new Collection(true),
+            var things = new Collection(true, { methods: { foo: function () { return 123 } } }),
                 record = things.get('123', { watch: true })
             
             expect(record).to.be.instanceof(records.WatchRecord)
             expect(record.get('id')).to.equal('123')
+            expect(record.foo()).to.equal(123)
         })
         
         it('can return a SyncRecord', function ()
         {
-            var things = new Collection(true),
+            var things = new Collection(true, { methods: { foo: function () { return 123 } } }),
                 record = things.get('123', { sync: true })
             
             expect(record).to.be.instanceof(records.SyncRecord)
             expect(record.get('id')).to.equal('123')
+            expect(record.foo()).to.equal(123)
         })
         
         it('adds the record to the current watcher', function ()
@@ -157,6 +160,14 @@ describe('Collection', function ()
             expect(watch.watcher.push).to.have.been.calledWith(record)
             
             watch.watcher = null
+        })
+        
+        it('uses default fields if none are passed', function ()
+        {
+            var things = new Collection(function () {}, { fields: { foo: 'bar' } }),
+                record = things.create()
+            
+            expect(record.get('foo')).to.equal('bar')
         })
     })
 

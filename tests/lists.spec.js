@@ -111,13 +111,14 @@ describe('DumbList', function ()
     it('updates its records with the results if find is successful', function ()
     {
         var service = sinon.stub().callsArgWith(2, null, [{id:1},{id:2},{id:3}]),
-            list = new DumbList(service, { foo: 'bar' })
+            list = new DumbList(service, { foo: 'bar' }, { foo: function () { return 123 } })
         
         var orig_records = list.records
         list.start()
         expect(list.records.length).to.equal(3)
         expect(list.records[0]).to.be.instanceof(Record)
         expect(list.records[0].get('id')).to.equal(1)
+        expect(list.records[0].foo()).to.equal(123)
         expect(list.records[1]).to.be.instanceof(Record)
         expect(list.records[1].get('id')).to.equal(2)
         expect(list.records[2]).to.be.instanceof(Record)
@@ -216,7 +217,7 @@ describe('WatchList', function ()
         var handlers = {},
             channel = { on: function (event, fn) { handlers[event] = fn } },
             service = sinon.stub().callsArgWith(2, null, channel),
-            list = new WatchList(service, { things: 'foo' }),
+            list = new WatchList(service, { things: 'foo' }, { foo: function () { return 123 } }),
             records = [ { id: 1, skidoo: 23 }, { id: 2, skidoo: 32 } ]
         
         list.start()
@@ -225,6 +226,7 @@ describe('WatchList', function ()
         handlers.initial(records)
         expect(list.records.length).to.equal(2)
         expect(list.records[0].fields).to.deep.equal(records[0])
+        expect(list.records[0].foo()).to.equal(123)
         expect(list.records[1].fields).to.deep.equal(records[1])
         expect(list.records_by_id[records[0].id]).to.equal(list.records[0])
         expect(list.records_by_id[records[1].id]).to.equal(list.records[1])
@@ -347,7 +349,7 @@ describe('SyncList', function ()
         var handlers = {},
             channel = { on: function (event, fn) { handlers[event] = fn } },
             service = sinon.stub().callsArgWith(2, null, channel),
-            list = new SyncList(service, { things: 'foo' }),
+            list = new SyncList(service, { things: 'foo' }, { foo: function () { return 123 } }),
             records = [ { id: 1, skidoo: 23 }, { id: 2, skidoo: 32 } ]
         
         list.start()
@@ -356,6 +358,7 @@ describe('SyncList', function ()
         handlers.initial(records)
         expect(list.records.length).to.equal(2)
         expect(list.records[0].fields).to.deep.equal(records[0])
+        expect(list.records[0].foo()).to.equal(123)
         expect(list.records[0]).to.be.instanceof(SyncListRecord)
         expect(list.records[1].fields).to.deep.equal(records[1])
         expect(list.records[1]).to.be.instanceof(SyncListRecord)

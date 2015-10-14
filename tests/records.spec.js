@@ -37,6 +37,20 @@ describe('Record', function ()
         expect(record.fields).to.deep.equal({ foo: 'bar' })
     })
     
+    it('has methods', function ()
+    {
+        var record = new Record(
+            { foo: 'bar' },
+            {
+                how_are_you: function ()
+                {
+                    return 'Ready to go to the '+this.get('foo')
+                }
+            })
+        
+        expect(record.how_are_you()).to.equal('Ready to go to the bar')
+    })
+    
     it('has an error property', function ()
     {
         var record = new Record()
