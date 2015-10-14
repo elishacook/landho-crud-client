@@ -1,7 +1,7 @@
 'use strict'
 
 var watch = require('../lib/watch'),
-    make_feed = function ()
+    make_watched = function ()
     {
         return {
             increment: sinon.spy(),
@@ -11,12 +11,12 @@ var watch = require('../lib/watch'),
 
 describe('watch', function ()
 {
-    it('collects feeds pushed during a call', function ()
+    it('collects watched pushed during a call', function ()
     {
         expect(watch.watcher).to.be.null
         
-        var a = make_feed(),
-            b = make_feed()
+        var a = make_watched(),
+            b = make_watched()
         
         var watcher = watch(function ()
         {
@@ -24,51 +24,51 @@ describe('watch', function ()
             watch.watcher.push(b)
         })
         
-        expect(watcher.feeds).to.deep.equal([a, b])
+        expect(watcher.watched).to.deep.equal([a, b])
     })
     
-    it('increments feeds when starting', function ()
+    it('increments watched when starting', function ()
     {
-        var feed = make_feed()
+        var watched = make_watched()
         var watcher = watch(function ()
         {
-            watch.watcher.push(feed)
+            watch.watcher.push(watched)
         })
         
-        expect(feed.increment).to.have.been.calledOnce
+        expect(watched.increment).to.have.been.calledOnce
     })
     
-    it('decrements feeds when stopping', function ()
+    it('decrements watched when stopping', function ()
     {
-        var feed = make_feed()
+        var watched = make_watched()
         var watcher = watch(function ()
         {
-            watch.watcher.push(feed)
+            watch.watcher.push(watched)
         })
         
         watcher.stop()
-        expect(feed.decrement).to.have.been.calledOnce
+        expect(watched.decrement).to.have.been.calledOnce
     })
     
     it('does not decrement more than once if stop() is called multiple times', function ()
     {
-        var feed = make_feed()
+        var watched = make_watched()
         var watcher = watch(function ()
         {
-            watch.watcher.push(feed)
+            watch.watcher.push(watched)
         })
         
         watcher.stop()
         watcher.stop()
         watcher.stop()
         
-        expect(feed.decrement).to.have.been.calledOnce
+        expect(watched.decrement).to.have.been.calledOnce
     })
     
     it('creates multiple watchers for multiple calls to watch()', function ()
     {
-        var a = make_feed(),
-            b = make_feed(),
+        var a = make_watched(),
+            b = make_watched(),
             watcher_a = watch(function ()
             {
                 watch.watcher.push(a)
@@ -79,7 +79,7 @@ describe('watch', function ()
             })
         
         expect(watcher_a).to.not.equal(watcher_b)
-        expect(watcher_a.feeds).to.deep.equal([a])
-        expect(watcher_b.feeds).to.deep.equal([b])
+        expect(watcher_a.watched).to.deep.equal([a])
+        expect(watcher_b.watched).to.deep.equal([b])
     })
 })

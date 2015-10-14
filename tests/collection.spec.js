@@ -1,291 +1,225 @@
 'use strict'
 
 var Collection = require('../lib/collection'),
-    watch = require('../lib/watch'),
-    Record = require('../lib/record'),
-    feeds = require('../lib/feeds')
+    records = require('../lib/records'),
+    lists = require('../lib/lists'),
+    watch = require('../lib/watch')
 
-function simple_collection (options)
-{
-    options = options || {}
-    return new Collection({
-        service: options.service || 'some-service',
-        fields: options.fields || {},
-        methods: options.methods || {},
-        relations: options.relations || {},
-        client: sinon.spy()
-    })
-}
 
 describe('Collection', function ()
 {
-    it('throws an error if initialized without a client', function ()
+    it('throws an error if not instantiated with a service', function ()
     {
         expect(function ()
         {
-            new Collection()
-        }).to.throw('You must provide a client')
+            var things = new Collection()
+        }).to.throw('A service is required')
     })
     
-    it('throws an error if initialized without a service name', function ()
+    describe('get()', function ()
     {
-        expect(function ()
+        it('can return a DumbRecord', function ()
         {
-            new Collection({ client: function () {} })
-        }).to.throw('You must provide the name of a service')
-    })
-    
-    it('has a simple database mapping ids to records', function ()
-    {
-        var coll = new Collection({ client: function (){}, service: 'foo' })
-        expect(coll.db).to.not.be.undefined
-        expect(coll.db).to.deep.equal({})
-    })
-    
-    it('has a get method that adds a feed to watch and returns a record', function ()
-    {
-        var coll = simple_collection(),
-            record = null
-        
-        var watcher = watch(function ()
-        {
-            record = coll.get('123')
+            var things = new Collection(true),
+                record = things.get('123')
+            
+            expect(record).to.be.instanceof(records.DumbRecord)
+            expect(record.get('id')).to.equal('123')
         })
         
-        expect(record).to.not.be.null
-        expect(record).to.be.instanceOf(Record)
-        expect(record.serialize()).to.deep.equal({ id: '123' })
-        
-        expect(watcher.feeds.length).to.equal(1)
-        expect(watcher.feeds[0]).to.be.instanceOf(feeds.RecordFeed)
-        expect(watcher.feeds[0].record).to.equal(record)
-    })
-    
-    it('has a find method that adds a feed to watch and returns an array of items', function ()
-    {
-        var coll = simple_collection(),
-            items = null
-        
-        var watcher = watch(function ()
+        it('can return a WatchRecord', function ()
         {
-            items = coll.find()
+            var things = new Collection(true),
+                record = things.get('123', { watch: true })
+            
+            expect(record).to.be.instanceof(records.WatchRecord)
+            expect(record.get('id')).to.equal('123')
         })
         
-        expect(items).to.not.be.null
-        expect(items).to.deep.equal([])
+        it('can return a SyncRecord', function ()
+        {
+            var things = new Collection(true),
+                record = things.get('123', { sync: true })
+            
+            expect(record).to.be.instanceof(records.SyncRecord)
+            expect(record.get('id')).to.equal('123')
+        })
         
-        expect(watcher.feeds.length).to.equal(1)
-        expect(watcher.feeds[0]).to.be.instanceOf(feeds.ListFeed)
-        expect(watcher.feeds[0].items).to.equal(items)
+        it('adds the record to the current watcher', function ()
+        {
+            watch.watcher = { push: sinon.stub() }
+            
+            var things = new Collection(true),
+                record = things.get('123')
+            
+            expect(watch.watcher.push).to.have.been.calledOnce
+            expect(watch.watcher.push.args[0][0].fields).to.deep.equal({id:'123'})
+            
+            watch.watcher = null
+        })
     })
     
     describe('create()', function ()
     {
-        it('creates a new Record and returns it', function ()
+        it('adds an id if one isn\'t already set', function ()
         {
-            var coll = simple_collection(),
-                record = coll.create({ foo: 'bar', skidoo: 23 })
-            
-            expect(record.id).to.not.be.undefined
-            expect(record.foo).to.equal('bar')
-            expect(record.skidoo).to.equal(23)
-            expect(record).to.be.instanceOf(Record)
-            expect(coll.db[record.id]).to.equal(record)
+            var things = new Collection(function () {}),
+                record = things.create({})
+            expect(record.get('id')).to.not.be.undefined
         })
         
-        it('calls the client service', function ()
+        it('does not set id if one is already set', function ()
         {
-            var coll = simple_collection(),
-                record = coll.create({ foo: 'bar', skidoo: 23 })
-            
-            expect(coll.client).to.have.been.calledOnce
-            expect(coll.client.args[0][0]).to.equal('some-service create')
-            expect(coll.client.args[0][1]).to.deep.equal(record.serialize())
-            expect(coll.client.args[0][2]).to.be.instanceOf(Function)
+            var things = new Collection(function () {}),
+                record = things.create({ id: 'foo' })
+            expect(record.get('id')).to.equal('foo')
         })
         
-        it('sets the record\'s error property if there is an error response from the service call', function ()
+        it('returns a SyncRecord if there are no cached records', function ()
         {
-            var coll = simple_collection(),
-                record = coll.create({ foo: 'bar', skidoo: 23 })
-            
-            coll.client.args[0][2]({ code: 'red' })
-            expect(record.error).to.deep.equal({ code: 'red' })
+            var things = new Collection(function () {}),
+                record = things.create({ shoes: 'shiny' })
+            expect(record).to.be.instanceof(records.SyncRecord)
+            expect(record.get('shoes')).to.equal('shiny')
         })
         
-        it('calls the done callback with an error if there is an error response from the service call', function ()
+        it('calls its service\'s create method', function ()
         {
-            var coll = simple_collection(),
-                done = sinon.spy(),
-                record = coll.create({ foo: 'bar', skidoo: 23 }, done)
+            var things = new Collection(sinon.stub()),
+                record = things.create({ shoes: 'shiny' })
             
-            coll.client.args[0][2]({ code: 'red' })
-            expect(done).to.have.been.calledOnce
-            expect(done.args[0].length).to.equal(1)
-            expect(done.args[0][0]).to.deep.equal({ code: 'red' })
+            expect(things.service).to.have.been.calledOnce
+            expect(things.service.args[0][0]).to.equal('create')
+            expect(things.service.args[0][1]).to.deep.equal({'shoes':'shiny', id: record.get('id')})
         })
         
-        it('calls the done callback with the record if the call is successful', function ()
+        it('sets the record\'s error property if the create call fails', function ()
         {
-            var coll = simple_collection(),
-                done = sinon.spy(),
-                record = null
+            var service = sinon.stub().callsArgWith(2, 'some error'),
+                things = new Collection(service),
+                record = things.create({ shoes: 'shiny' })
             
-            watch(function ()
-            {
-                record = coll.create({ foo: 'bar', skidoo: 23 }, done)
-                coll.client.args[0][2](null, record.serialize())
-            })
-            
-            expect(done).to.have.been.calledOnce
-            expect(done.args[0].length).to.equal(2)
-            expect(done.args[0][0]).to.be.null
-            expect(done.args[0][1]).to.equal(record)
+            expect(record.error).to.equal('some error')
         })
         
-        it('creates a record feed and watches it', function ()
+        it('returns a sync record if one is available', function ()
         {
-            var coll = simple_collection(),
-                record = null
+            var things = new Collection(function () {})
+            things.get_list_cache.foo = { options: {}, add: sinon.stub().returns('dumb') }
+            things.watch_list_cache.foo = { options: {}, add: sinon.stub().returns('watch') }
+            things.sync_list_cache.foo = { options: {}, add: sinon.stub().returns('sync') }
             
-            var watcher = watch(function ()
-            {
-                record = coll.create({ foo: 'bar', skidoo: 23 })
-                coll.client.args[0][2](null, record.serialize())
-            })
+            var record = things.create({})
+            expect(record).to.equal('sync')
+        })
+        
+        it('returns a watch record if no sync record is available', function ()
+        {
+            var things = new Collection(function () {})
+            things.get_list_cache.foo = { options: {}, add: sinon.stub().returns('dumb') }
+            things.watch_list_cache.foo = { options: {}, add: sinon.stub().returns('watch') }
             
-            expect(watcher.feeds.length).to.equal(1)
-            expect(watcher.feeds[0]).to.be.instanceOf(feeds.RecordFeed)
-            expect(watcher.feeds[0].record).to.equal(record)
+            var record = things.create({})
+            expect(record).to.equal('watch')
+        })
+        
+        it('returns a dumb record if no watch record is available', function ()
+        {
+            var things = new Collection(function () {})
+            things.get_list_cache.foo = { options: {}, add: sinon.stub().returns('dumb') }
+            
+            var record = things.create({})
+            expect(record).to.equal('dumb')
+        })
+        
+        it('adds the list that matched the record to the watcher', function ()
+        {
+            watch.watcher = { push: sinon.stub() }
+            
+            var things = new Collection(function () {})
+            things.sync_list_cache.foo = { options: {}, add: sinon.stub().returns('sync') }
+            
+            var record = things.create({})
+            expect(watch.watcher.push).to.have.been.calledOnce
+            expect(watch.watcher.push).to.have.been.calledWith(things.sync_list_cache.foo)
+            
+            watch.watcher = null
+        })
+        
+        it('adds the SyncRecord to the watcher if no list is matched', function ()
+        {
+            watch.watcher = { push: sinon.stub() }
+            
+            var things = new Collection(function () {}),
+                record = things.create()
+            
+            expect(watch.watcher.push).to.have.been.calledOnce
+            expect(watch.watcher.push).to.have.been.calledWith(record)
+            
+            watch.watcher = null
         })
     })
 
-    describe('update()', function ()
+    describe('find()', function ()
     {
-        it('calls the client service', function ()
+        it('can return a DumbList', function ()
         {
-            var coll = simple_collection(),
-                record = coll.create({ foo: 'bar', skidoo: 23 })
+            var things = new Collection(true),
+                list = things.find({ foo: 'bar' })
             
-            expect(coll.client).to.have.been.calledOnce
-            expect(coll.client.args[0][0]).to.equal('some-service create')
-            expect(coll.client.args[0][1]).to.deep.equal(record.serialize())
-            expect(coll.client.args[0][2]).to.be.instanceOf(Function)
+            expect(list).to.be.instanceof(lists.DumbList)
+            expect(list.options).to.deep.equal({ foo: 'bar' })
         })
         
-        it('updates the record with the service response', function ()
+        it('can return a WatchList', function ()
         {
-            var coll = simple_collection(),
-                record = new Record({ id: '123', foo: 'bar' })
+            var things = new Collection(true),
+                list = things.find({ foo: 'bar', watch: true })
+            
+            expect(list).to.be.instanceof(lists.WatchList)
+            expect(list.options).to.deep.equal({ foo: 'bar', watch: true })
+        })
+        
+        it('can return a SyncList', function ()
+        {
+            var things = new Collection(true),
+                list = things.find({ foo: 'bar', sync: true })
+            
+            expect(list).to.be.instanceof(lists.SyncList)
+            expect(list.options).to.deep.equal({ foo: 'bar', sync: true })
+        })
+        
+        it('adds the list to the current watcher', function ()
+        {
+            watch.watcher = { push: sinon.stub() }
+            
+            var things = new Collection(true),
+                list = things.find({ foo: 'bar' })
+            
+            expect(watch.watcher.push).to.have.been.calledOnce
+            expect(watch.watcher.push.args[0][0]).to.equal(list)
+            
+            watch.watcher = null
+        })
+        
+        it('will return a cached list', function ()
+        {
+            var things = new Collection(true),
+                dumb_key = things.cache_key({foo: 'bar'}),
+                watch_key = things.cache_key({foo: 'bar', watch: true}),
+                sync_key = things.cache_key({foo: 'bar', sync: true})
+            
+            things.get_list_cache[dumb_key] = 'dumb'
+            things.watch_list_cache[watch_key] = 'watch'
+            things.sync_list_cache[sync_key] = 'sync'
+            
+            var dumb_list = things.find({foo: 'bar'}),
+                watch_list = things.find({foo: 'bar', watch: true}),
+                sync_list = things.find({foo: 'bar', sync: true})
                 
-            coll.update(record)
-            
-            expect(coll.client).to.have.been.calledOnce
-            expect(coll.client.args[0][0]).to.equal('some-service update')
-            expect(coll.client.args[0][1]).to.deep.equal(record.serialize())
-            
-            var update = record.serialize()
-            update.skidoo = 23
-            
-            coll.client.args[0][2](null, update)
-            
-            expect(record.serialize()).to.deep.equal({ id: '123', foo: 'bar', skidoo: 23 })
-        })
-        
-        it('sets the record\'s error property if there is an error response from the service call', function ()
-        {
-            var coll = simple_collection(),
-                record = new Record({ id: '123', foo: 'bar' })
-            
-            coll.update(record)
-            coll.client.args[0][2]({ code: 'red' })
-            expect(record.error).to.deep.equal({ code: 'red' })
-        })
-        
-        it('calls the done callback with an error if there is an error response from the service call', function ()
-        {
-            var coll = simple_collection(),
-                done = sinon.spy(),
-                record = new Record({ id: '123', foo: 'bar' })
-            
-            coll.update(record, done)
-            coll.client.args[0][2]({ code: 'red' })
-            expect(done).to.have.been.calledOnce
-            expect(done.args[0].length).to.equal(1)
-            expect(done.args[0][0]).to.deep.equal({ code: 'red' })
-        })
-        
-        it('calls the done callback with no arguments if the update is successful', function ()
-        {
-            var coll = simple_collection(),
-                done = sinon.spy(),
-                record = new Record({ id: '123', foo: 'bar' })
-            
-            coll.update(record, done)
-            coll.client.args[0][2](null, {})
-            expect(done).to.have.been.calledOnce
-            expect(done.args[0].length).to.equal(0)
-        })
-    })
-
-    describe('remove', function ()
-    {
-        it('calls the client service', function ()
-        {
-            var coll = simple_collection(),
-                record = new Record({ id: '123' })
-            
-            coll.remove(record)
-            
-            expect(coll.client).to.have.been.calledOnce
-            expect(coll.client.args[0][0]).to.equal('some-service remove')
-            expect(coll.client.args[0][1]).to.deep.equal({ id: '123' })
-            expect(coll.client.args[0][2]).to.be.instanceOf(Function)
-        })
-        
-        it('sets the records deleted property', function ()
-        {
-            var coll = simple_collection(),
-                record = new Record({ id: '123' })
-            
-            expect(record.deleted).to.be.false
-            coll.remove(record)
-            expect(record.deleted).to.be.true
-        })
-        
-        it('sets the record\'s error property if there is an error response from the service call', function ()
-        {
-            var coll = simple_collection(),
-                record = new Record({ id: '123' })
-            
-            coll.remove(record)
-            coll.client.args[0][2]({ code: 'red' })
-            expect(record.error).to.deep.equal({ code: 'red' })
-        })
-        
-        it('calls the done callback with an error if there is an error response from the service call', function ()
-        {
-            var coll = simple_collection(),
-                done = sinon.spy(),
-                record = new Record({ id: '123' })
-            
-            coll.remove(record, done)
-            coll.client.args[0][2]({ code: 'red' })
-            expect(done).to.have.been.calledOnce
-            expect(done.args[0].length).to.equal(1)
-            expect(done.args[0][0]).to.deep.equal({ code: 'red' })
-        })
-        
-        it('calls the done callback with no arguments if the update is successful', function ()
-        {
-            var coll = simple_collection(),
-                done = sinon.spy(),
-                record = new Record({ id: '123' })
-            
-            coll.remove(record, done)
-            coll.client.args[0][2](null, {})
-            expect(done).to.have.been.calledOnce
-            expect(done.args[0].length).to.equal(0)
+            expect(dumb_list).to.equal('dumb')
+            expect(watch_list).to.equal('watch')
+            expect(sync_list).to.equal('sync')
         })
     })
 })
