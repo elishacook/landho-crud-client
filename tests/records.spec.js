@@ -85,6 +85,12 @@ describe('Record', function ()
         var record = new Record({foo:'bar'})
         expect(record.foo).to.equal('bar')
     })
+    
+    it('can have relations', function ()
+    {
+        var record = new Record({id:123}, {}, { things: function () { return [this.id] } })
+        expect(record.things).to.deep.equal([record.id])
+    })
 })
 
 
@@ -325,10 +331,10 @@ describe('SyncRecord', function ()
         expect(record).to.be.instanceof(WatchRecord)
     })
     
-    it('is a WritableMixin', function ()
+    it('is Writable', function ()
     {
         var record = new SyncRecord()
-        expect(record.set).to.equal(WritableMixin.Writable.set)
+        expect(mixin.has(record, Writable)).to.be.true
     })
     
     it('has a syncdoc property', function ()
