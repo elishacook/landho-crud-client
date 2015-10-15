@@ -79,6 +79,18 @@ describe('List', function ()
         expect(list.length).to.equal(0)
     })
     
+    it('has a delete() method that removes matching records', function ()
+    {
+        var list = new List()
+        list.push({ id: 1 })
+        list.push({ id: 2 })
+
+        list.delete(1)
+        
+        expect(list.length).to.equal(1)
+        expect(list[0]).to.deep.equal({ id: 2 })
+    })
+    
     it('has an onchange() method', function ()
     {
         var list = new List()
@@ -148,7 +160,7 @@ describe('DumbList', function ()
         expect(computation.async).to.have.been.calledOnce
     })
     
-    it('creates, adds and returns a new DumbRecord when add() is called', function ()
+    it('creates, adds and returns a new Record when add() is called', function ()
     {
         var list = new DumbList(),
             record = list.add({ id: 'foo' })
@@ -322,6 +334,35 @@ describe('WatchList', function ()
         expect(list[1].id).to.equal(3)
         expect(computation.async).to.have.been.calledTwice
     })
+    
+    it('creates, adds and returns a new Record when add() is called', function ()
+    {
+        var list = new WatchList(),
+            record = list.add({ id: 'foo' })
+        
+        expect(record).to.be.instanceof(Record)
+        expect(record.id).to.equal('foo')
+        expect(list.slice(0)).to.deep.equal([record])
+        expect(list.records_by_id.foo).to.equal(record)
+    })
+    
+    it('has a delete() method that removes matching records', function ()
+    {
+        var list = new WatchList(),
+            record_one = { id: 1 },
+            record_two = { id: 2 }
+            
+        list.push(record_one)
+        list.push(record_two)
+        list.records_by_id[1] = record_one
+        list.records_by_id[2] = record_two
+
+        list.delete(1)
+        
+        expect(list.length).to.equal(1)
+        expect(list[0]).to.deep.equal({ id: 2 })
+        expect(list.records_by_id[1]).to.be.undefined
+    })
 })
 
 describe('SyncList', function ()
@@ -477,6 +518,17 @@ describe('SyncList', function ()
         expect(record.syncdoc.push).to.have.been.calledOnce
         expect(list.channel.emit).to.have.been.calledOnce
         expect(list.channel.emit.firstCall.args).to.deep.equal(['pull', 123, [1,2,3]])
+    })
+    
+    it('creates, adds and returns a new SyncListRecord when add() is called', function ()
+    {
+        var list = new SyncList(),
+            record = list.add({ id: 'foo' })
+        
+        expect(record).to.be.instanceof(SyncListRecord)
+        expect(record.id).to.equal('foo')
+        expect(list.slice(0)).to.deep.equal([record])
+        expect(list.records_by_id.foo).to.equal(record)
     })
 })
 

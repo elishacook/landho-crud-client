@@ -233,4 +233,48 @@ describe('Collection', function ()
             expect(sync_list).to.equal('sync')
         })
     })
+    
+    describe('delete()', function ()
+    {
+        it('calls its service\'s delete method', function ()
+        {
+            var things = new Collection(sinon.stub())
+            things.delete(123)
+            expect(things.service).to.have.been.calledOnce
+            expect(things.service.firstCall.args).to.deep.equal(
+                ['delete', { id: 123 }]
+            )
+        })
+        
+        it('sets cached records\' deleted properties', function ()
+        {
+            var things = new Collection(sinon.stub())
+            things.get_one_cache[123] = { deleted: false }
+            things.watch_one_cache[123] = { deleted: false }
+            things.sync_one_cache[123] = { deleted: false }
+            
+            things.delete(123)
+            
+            expect(things.get_one_cache[123].deleted).to.be.true
+            expect(things.watch_one_cache[123].deleted).to.be.true
+            expect(things.sync_one_cache[123].deleted).to.be.true
+        })
+        
+        it('calls delete() on all cached lists', function ()
+        {
+            var things = new Collection(sinon.stub())
+            things.get_list_cache.foo = { delete: sinon.stub() }
+            things.watch_list_cache.foo = { delete: sinon.stub() }
+            things.sync_list_cache.foo = { delete: sinon.stub() }
+            
+            things.delete(123)
+            
+            expect(things.get_list_cache.foo.delete).to.have.been.calledOnce
+            expect(things.get_list_cache.foo.delete).to.have.been.calledWith(123)
+            expect(things.watch_list_cache.foo.delete).to.have.been.calledOnce
+            expect(things.watch_list_cache.foo.delete).to.have.been.calledWith(123)
+            expect(things.sync_list_cache.foo.delete).to.have.been.calledOnce
+            expect(things.sync_list_cache.foo.delete).to.have.been.calledWith(123)
+        })
+    })
 })
