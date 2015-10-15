@@ -1,8 +1,9 @@
 'use strict'
 
-var records = require('../lib/records'),
+var mixin = require('../lib/mixin'),
+    records = require('../lib/records'),
     Record = records.Record,
-    WritableMixin = records.WritableMixin,
+    Writable = records.Writable,
     DumbRecord = records.DumbRecord,
     WatchRecord = records.WatchRecord,
     SyncRecord = records.SyncRecord,
@@ -94,7 +95,7 @@ describe('WritableMixin', function ()
         Record.call(this, fields)
     }
     WritableRecord.prototype = Object.create(Record.prototype)
-    WritableMixin(WritableRecord)
+    mixin(WritableRecord, Writable)
     
     it('has a set() method that sets field values and calls push()', function ()
     {
