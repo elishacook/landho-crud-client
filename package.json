@@ -1,6 +1,6 @@
 {
   "name": "landho-crud-client",
-  "version": "0.2.2",
+  "version": "0.3.0",
   "description": "A client for landho-crud services supporting realtime features",
   "main": "lib/index.js",
   "scripts": {

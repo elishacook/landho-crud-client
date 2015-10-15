@@ -1,8 +1,9 @@
 'use strict'
 
-var records = require('../lib/records'),
+var mixin = require('../lib/mixin'),
+    records = require('../lib/records'),
     Record = records.Record,
-    WritableRecord = records.WritableRecord,
+    Writable = records.Writable,
     lists = require('../lib/lists'),
     List = lists.List,
     DumbList = lists.DumbList,
@@ -32,7 +33,13 @@ describe('List', function ()
     it('is a Watched', function ()
     {
         var list = new List()
-        expect(list).to.be.instanceof(watch.Watched)
+        expect(mixin.has(list, watch.Watched.prototype)).to.be.true
+    })
+    
+    it('is an Array', function ()
+    {
+        var list = new List()
+        expect(list).to.be.instanceof(Array)
     })
     
     it('has a service', function ()
@@ -53,13 +60,6 @@ describe('List', function ()
         expect(list2.options).to.deep.equal({})
     })
     
-    it('has an array of records', function ()
-    {
-        var list = new List()
-        expect(list).to.have.property('records')
-        expect(list.records).to.deep.equal([])
-    })
-    
     it('has an error property', function ()
     {
         var list = new List()
@@ -73,7 +73,7 @@ describe('List', function ()
             res = list.add()
         
         expect(res).to.be.undefined
-        expect(list.records).to.deep.equal([])
+        expect(list.length).to.equal(0)
     })
 })
 
@@ -113,16 +113,16 @@ describe('DumbList', function ()
         var service = sinon.stub().callsArgWith(2, null, [{id:1},{id:2},{id:3}]),
             list = new DumbList(service, { foo: 'bar' }, { foo: function () { return 123 } })
         
-        var orig_records = list.records
+        var orig_records = list.slice(0)
         list.start()
-        expect(list.records.length).to.equal(3)
-        expect(list.records[0]).to.be.instanceof(Record)
-        expect(list.records[0].get('id')).to.equal(1)
-        expect(list.records[0].foo()).to.equal(123)
-        expect(list.records[1]).to.be.instanceof(Record)
-        expect(list.records[1].get('id')).to.equal(2)
-        expect(list.records[2]).to.be.instanceof(Record)
-        expect(list.records[2].get('id')).to.equal(3)
+        expect(list.length).to.equal(3)
+        expect(list[0]).to.be.instanceof(Record)
+        expect(list[0].id).to.equal(1)
+        expect(list[0].foo()).to.equal(123)
+        expect(list[1]).to.be.instanceof(Record)
+        expect(list[1].id).to.equal(2)
+        expect(list[2]).to.be.instanceof(Record)
+        expect(list[2].id).to.equal(3)
         expect(computation.async).to.have.been.calledOnce
     })
     
@@ -132,8 +132,8 @@ describe('DumbList', function ()
             record = list.add({ id: 'foo' })
         
         expect(record).to.be.instanceof(Record)
-        expect(record.get('id')).to.equal('foo')
-        expect(list.records).to.deep.equal([record])
+        expect(record.id).to.equal('foo')
+        expect(list.slice(0)).to.deep.equal([record])
     })
 })
 
@@ -224,12 +224,12 @@ describe('WatchList', function ()
         expect(handlers).to.have.property('initial')
         expect(handlers.initial).to.be.instanceof(Function)
         handlers.initial(records)
-        expect(list.records.length).to.equal(2)
-        expect(list.records[0].fields).to.deep.equal(records[0])
-        expect(list.records[0].foo()).to.equal(123)
-        expect(list.records[1].fields).to.deep.equal(records[1])
-        expect(list.records_by_id[records[0].id]).to.equal(list.records[0])
-        expect(list.records_by_id[records[1].id]).to.equal(list.records[1])
+        expect(list.length).to.equal(2)
+        expect(list[0].fields).to.deep.equal(records[0])
+        expect(list[0].foo()).to.equal(123)
+        expect(list[1].fields).to.deep.equal(records[1])
+        expect(list.records_by_id[records[0].id]).to.equal(list[0])
+        expect(list.records_by_id[records[1].id]).to.equal(list[1])
         expect(computation.async).to.have.been.calledOnce
     })
     
@@ -246,7 +246,7 @@ describe('WatchList', function ()
         expect(handlers).to.have.property('update')
         expect(handlers.update).to.be.instanceof(Function)
         handlers.update({ id: 2, skidoo: 666 })
-        expect(list.records[1].get('skidoo')).to.equal(666)
+        expect(list[1].skidoo).to.equal(666)
         expect(computation.async).to.have.been.calledTwice
     })
     
@@ -276,8 +276,8 @@ describe('WatchList', function ()
         expect(handlers).to.have.property('insert')
         expect(handlers.insert).to.be.instanceof(Function)
         handlers.insert({ id: 1, stuff: 'things' })
-        expect(list.records.length).to.equal(1)
-        expect(list.records[0].fields).to.deep.equal({ id: 1, stuff: 'things' })
+        expect(list.length).to.equal(1)
+        expect(list[0].fields).to.deep.equal({ id: 1, stuff: 'things' })
         expect(computation.async).to.have.been.calledOnce
     })
     
@@ -290,14 +290,14 @@ describe('WatchList', function ()
         
         list.start()
         handlers.initial([{id:1},{id:2},{id:3}])
-        var record = list.records[1]
+        var record = list[1]
         expect(handlers).to.have.property('delete')
         expect(handlers.delete).to.be.instanceof(Function)
         handlers.delete({ id: 2 })
         expect(record.deleted).to.be.true
-        expect(list.records.length).to.equal(2)
-        expect(list.records[0].get('id')).to.equal(1)
-        expect(list.records[1].get('id')).to.equal(3)
+        expect(list.length).to.equal(2)
+        expect(list[0].id).to.equal(1)
+        expect(list[1].id).to.equal(3)
         expect(computation.async).to.have.been.calledTwice
     })
 })
@@ -356,14 +356,14 @@ describe('SyncList', function ()
         expect(handlers).to.have.property('initial')
         expect(handlers.initial).to.be.instanceof(Function)
         handlers.initial(records)
-        expect(list.records.length).to.equal(2)
-        expect(list.records[0].fields).to.deep.equal(records[0])
-        expect(list.records[0].foo()).to.equal(123)
-        expect(list.records[0]).to.be.instanceof(SyncListRecord)
-        expect(list.records[1].fields).to.deep.equal(records[1])
-        expect(list.records[1]).to.be.instanceof(SyncListRecord)
-        expect(list.records_by_id[records[0].id]).to.equal(list.records[0])
-        expect(list.records_by_id[records[1].id]).to.equal(list.records[1])
+        expect(list.length).to.equal(2)
+        expect(list[0].fields).to.deep.equal(records[0])
+        expect(list[0].foo()).to.equal(123)
+        expect(list[0]).to.be.instanceof(SyncListRecord)
+        expect(list[1].fields).to.deep.equal(records[1])
+        expect(list[1]).to.be.instanceof(SyncListRecord)
+        expect(list.records_by_id[records[0].id]).to.equal(list[0])
+        expect(list.records_by_id[records[1].id]).to.equal(list[1])
         expect(computation.async).to.have.been.calledOnce
     })
     
@@ -377,12 +377,12 @@ describe('SyncList', function ()
         
         list.start()
         handlers.initial(records)
-        list.records[1].syncdoc.pull = sinon.stub()
+        list[1].syncdoc.pull = sinon.stub()
         expect(handlers).to.have.property('pull')
         expect(handlers.pull).to.be.instanceof(Function)
         handlers.pull(2, ['some-edits'])
-        expect(list.records[1].syncdoc.pull).to.have.been.calledOnce
-        expect(list.records[1].syncdoc.pull).to.have.been.calledWith('some-edits')
+        expect(list[1].syncdoc.pull).to.have.been.calledOnce
+        expect(list[1].syncdoc.pull).to.have.been.calledWith('some-edits')
         expect(computation.async).to.have.been.calledTwice
     })
     
@@ -412,9 +412,9 @@ describe('SyncList', function ()
         expect(handlers).to.have.property('insert')
         expect(handlers.insert).to.be.instanceof(Function)
         handlers.insert({ id: 1, stuff: 'things' })
-        expect(list.records.length).to.equal(1)
-        expect(list.records[0].fields).to.deep.equal({ id: 1, stuff: 'things' })
-        expect(list.records[0]).to.be.instanceof(SyncListRecord)
+        expect(list.length).to.equal(1)
+        expect(list[0].fields).to.deep.equal({ id: 1, stuff: 'things' })
+        expect(list[0]).to.be.instanceof(SyncListRecord)
         expect(computation.async).to.have.been.calledOnce
     })
     
@@ -427,34 +427,31 @@ describe('SyncList', function ()
         
         list.start()
         handlers.initial([{id:1},{id:2},{id:3}])
-        var record = list.records[1]
+        var record = list[1]
         expect(handlers).to.have.property('delete')
         expect(handlers.delete).to.be.instanceof(Function)
         handlers.delete(2)
         expect(record.deleted).to.be.true
-        expect(list.records.length).to.equal(2)
-        expect(list.records[0].get('id')).to.equal(1)
-        expect(list.records[1].get('id')).to.equal(3)
+        expect(list.length).to.equal(2)
+        expect(list[0].id).to.equal(1)
+        expect(list[1].id).to.equal(3)
         expect(computation.async).to.have.been.calledTwice
     })
     
-    it('has a push() method that sends edits from a SyncListRecord', function ()
+    it('has a push_changes() method that sends edits from a SyncListRecord', function ()
     {
         var list = new SyncList(),
             record = {
+                id: 123,
                 syncdoc:
                 {
                     push: sinon.stub(),
                     edits: [1,2,3]
-                },
-                fields:
-                {
-                    id: 123
                 }
             }
             
         list.channel = { emit: sinon.stub() }
-        list.push(record)
+        list.push_changes(record)
         expect(record.syncdoc.push).to.have.been.calledOnce
         expect(list.channel.emit).to.have.been.calledOnce
         expect(list.channel.emit.firstCall.args).to.deep.equal(['pull', 123, [1,2,3]])
@@ -463,22 +460,28 @@ describe('SyncList', function ()
 
 describe('SyncListRecord', function ()
 {
-    it('is a WritableRecord', function ()
+    it('is a Record', function ()
     {
         var record = new SyncListRecord()
-        expect(record).to.be.instanceof(WritableRecord)
+        expect(record).to.be.instanceof(Record)
+    })
+    
+    it('is Writable', function ()
+    {
+        var record = new SyncListRecord()
+        expect(mixin.has(record, Writable)).to.be.true
     })
     
     it('pushes itself to its list on push()', function ()
     {
-        var list = { push: sinon.stub() },
+        var list = { push_changes: sinon.stub() },
             record = new SyncListRecord(list)
         
         record.syncdoc = {}
         record.push()
         
-        expect(list.push).to.have.been.calledOnce
-        expect(list.push).to.have.been.calledWith(record)
+        expect(list.push_changes).to.have.been.calledOnce
+        expect(list.push_changes).to.have.been.calledWith(record)
     })
     
     it('does not push itself if it has no syncdoc', function ()
