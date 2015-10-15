@@ -78,6 +78,12 @@ describe('Record', function ()
         expect(record.get('foo')).to.equal('bar')
         expect(record.get('quaze')).to.be.undefined
     })
+    
+    it('adds properties for its fields', function ()
+    {
+        var record = new Record({foo:'bar'})
+        expect(record.foo).to.equal('bar')
+    })
 })
 
 
@@ -107,6 +113,20 @@ describe('WritableMixin', function ()
         expect(record.get('foo')).to.equal('bar')
         expect(record.get('quaze')).to.equal('lab')
         expect(record.push).to.have.been.calledOnce
+    })
+    
+    it('adds properties on update', function ()
+    {
+        var record = new WritableRecord({})
+        record.update({foo:'bar'})
+        expect(record.foo).to.equal('bar')
+    })
+    
+    it('adds properties on set', function ()
+    {
+        var record = new WritableRecord({})
+        record.set('foo', 'bar')
+        expect(record.foo).to.equal('bar')
     })
 })
 
