@@ -30,6 +30,9 @@ function unstub_computation ()
 
 describe('List', function ()
 {
+    beforeEach(stub_computation)
+    afterEach(unstub_computation)
+    
     it('is a Watched', function ()
     {
         var list = new List()
@@ -74,6 +77,25 @@ describe('List', function ()
         
         expect(res).to.be.undefined
         expect(list.length).to.equal(0)
+    })
+    
+    it('has an onchange() method', function ()
+    {
+        var list = new List()
+        
+        expect(list.onchange).to.be.defined
+        list.onchange()
+        expect(computation.async).to.have.been.calledOnce
+    })
+    
+    it('sorts during onchange() if a compare option is provided', function ()
+    {
+        var list = new List(null, { compare: function (a, b) { return a - b } })
+        list.push(3)
+        list.push(1)
+        list.push(2)
+        list.onchange()
+        expect(list.slice(0)).to.deep.equal([1,2,3])
     })
 })
 
