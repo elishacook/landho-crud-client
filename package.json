@@ -1,7 +1,7 @@
 {
   "name": "landho-crud-client",
-  "version": "0.3.3",
-  "description": "A client for landho-crud services supporting realtime features",
+  "version": "0.4.0",
+  "description": "",
   "main": "lib/index.js",
   "scripts": {
     "test": "mocha --recursive tests/*"
@@ -15,11 +15,11 @@
   "dependencies": {
     "@elishacook/simple-events": "^0.4.2",
     "landho-client": "^0.5.0",
-    "object-hash": "^0.9.1",
-    "sync-document": "^0.1.0"
+    "sync-document": "^0.1.0",
+    "uuid": "^2.0.1"
   },
   "devDependencies": {
-    "chai": "^3.3.0",
+    "chai": "^3.0.0",
     "mocha": "^2.2.5",
     "sinon": "^1.17.1",
     "sinon-chai": "^2.8.0"

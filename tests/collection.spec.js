@@ -1,280 +1,916 @@
 'use strict'
 
 var Collection = require('../lib/collection'),
-    records = require('../lib/records'),
-    lists = require('../lib/lists'),
-    watch = require('../lib/watch')
-
-
+    Record = require('../lib/record'),
+    List = require('../lib/list'),
+    computation = require('../lib/computation'),
+    SimpleEvents = require('@elishacook/simple-events')
+    
 describe('Collection', function ()
 {
-    it('throws an error if not instantiated with a service', function ()
+    beforeEach(function ()
     {
-        expect(function ()
-        {
-            var things = new Collection()
-        }).to.throw('A service is required')
+        computation.remove_all_listeners()
+    })
+    
+    it('has a service property', function ()
+    {
+        var coll = new Collection('service')
+        expect(coll.service).to.equal('service')
     })
     
     describe('get()', function ()
     {
-        it('can return a DumbRecord', function ()
+        it('returns a record', function ()
         {
-            var things = new Collection(true, { methods: { foo: function () { return 123 } } }),
-                record = things.get('123')
+            var coll = new Collection(sinon.stub()),
+                record = coll.get(123)
             
-            expect(record).to.be.instanceof(records.DumbRecord)
-            expect(record.get('id')).to.equal('123')
-            expect(record.foo()).to.equal(123)
+            expect(record).to.be.instanceof(Record)
+            expect(record.get('id')).to.equal(123)
         })
         
-        it('can return a WatchRecord', function ()
+        it('calls its service\'s get method', function ()
         {
-            var things = new Collection(true, { methods: { foo: function () { return 123 } } }),
-                record = things.get('123', { watch: true })
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123)
             
-            expect(record).to.be.instanceof(records.WatchRecord)
-            expect(record.get('id')).to.equal('123')
-            expect(record.foo()).to.equal(123)
+            expect(service).to.have.been.calledOnce
+            expect(service.firstCall.args[0]).to.equal('get')
+            expect(service.firstCall.args[1]).to.deep.equal({ id: 123, watch: true })
         })
         
-        it('can return a SyncRecord', function ()
+        it('calls computation.start()', function ()
         {
-            var things = new Collection(true, { methods: { foo: function () { return 123 } } }),
-                record = things.get('123', { sync: true })
+            var coll = new Collection(sinon.stub()),
+                start = sinon.stub()
             
-            expect(record).to.be.instanceof(records.SyncRecord)
-            expect(record.get('id')).to.equal('123')
-            expect(record.foo()).to.equal(123)
+            computation.on('start', start)
+            
+            coll.get(123)
+            
+            expect(start).to.have.been.calledOnce
         })
         
-        it('adds the record to the current watcher', function ()
+        it('emits an error event on the record if there is an error', function (done)
         {
-            watch.watcher = { push: sinon.stub() }
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123)
             
-            var things = new Collection(true),
-                record = things.get('123')
+            record.on('error', function (err)
+            {
+                expect(err).to.equal('foo')
+                done()
+            })
             
-            expect(watch.watcher.push).to.have.been.calledOnce
-            expect(watch.watcher.push.args[0][0].fields).to.deep.equal({id:'123'})
+            service.firstCall.args[2]('foo')
+        })
+        
+        it('calls computation.end() if there is an error', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                end = sinon.stub()
             
-            watch.watcher = null
+            computation.on('end', end)
+            
+            service.firstCall.args[2]('foo')
+            
+            expect(end).to.have.been.calledOnce
+        })
+        
+        it('emits an error event on record if there is an error channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents(),
+                error = sinon.stub()
+            
+            record.on('error', error)
+            service.firstCall.args[2](null, channel)
+            channel.emit('error', { foo: 'bar' })
+            expect(error).to.have.been.calledOnce
+            expect(error).to.have.been.calledWith({foo: 'bar'})
+        })
+        
+        it('calls computation.end() if there is an error channel event before initialization', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents(),
+                end = sinon.stub()
+            
+            computation.on('end', end)
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('error')
+            
+            expect(end).to.have.been.calledOnce
+        })
+        
+        it('calls computation.async() if there is an error channel event after initialization', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents(),
+                async = sinon.stub()
+            
+            computation.on('async', async)
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', {})
+            channel.emit('error')
+            
+            expect(async).to.have.been.calledOnce
+        })
+        
+        it('updates record\'s fields in quiet mode on initial channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents()
+            
+            record.update = sinon.spy()
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', { foo: 'bar' })
+            expect(record.update).to.have.been.calledOnce
+            expect(record.update).to.have.been.calledWith({foo: 'bar'}, true)
+        })
+        
+        it('emits change event on record on initial channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents(),
+                change = sinon.stub()
+            
+            record.on('change', change)
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', { foo: 'bar' })
+            expect(change).to.have.been.calledOnce
+            expect(change.firstCall.args[0]).to.equal(record)
+        })
+        
+        it('calls computation.end() on initial channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents(),
+                end = sinon.stub()
+            
+            computation.on('end', end)
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', { foo: 'bar' })
+            expect(end).to.have.been.calledOnce
+        })
+        
+        it('updates record\'s fields in quiet mode on update channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents()
+            
+            record.update = sinon.spy()
+            service.firstCall.args[2](null, channel)
+            channel.emit('update', { foo: 'bar' })
+            expect(record.update).to.have.been.calledOnce
+            expect(record.update).to.have.been.calledWith({foo: 'bar'}, true)
+        })
+        
+        it('emits change event on record on update channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents(),
+                change = sinon.stub()
+            
+            record.on('change', change)
+            service.firstCall.args[2](null, channel)
+            channel.emit('update', { foo: 'bar' })
+            expect(change).to.have.been.calledOnce
+            expect(change.firstCall.args[0]).to.equal(record)
+        })
+        
+        it('calls computation.async() on update channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents(),
+                async = sinon.stub()
+            
+            computation.on('async', async)
+            service.firstCall.args[2](null, channel)
+            channel.emit('update', { foo: 'bar' })
+            expect(async).to.have.been.calledOnce
+        })
+        
+        it('sets record\'s deleted property on delete channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents()
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('delete')
+            expect(record.deleted).to.be.true
+        })
+        
+        it('emits delete event on record on delete channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents(),
+                deleted = sinon.stub()
+            
+            record.on('delete', deleted)
+            service.firstCall.args[2](null, channel)
+            channel.emit('delete')
+            expect(deleted).to.have.been.calledOnce
+            expect(deleted.firstCall.args[0]).to.equal(record)
+        })
+        
+        it('calls computation.async() on delete channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents(),
+                async = sinon.stub()
+            
+            computation.on('async', async)
+            service.firstCall.args[2](null, channel)
+            channel.emit('delete')
+            expect(async).to.have.been.calledOnce
+        })
+        
+        it('calls channel.close() on record close event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123),
+                channel = new SimpleEvents()
+            
+            channel.close = sinon.stub()
+            service.firstCall.args[2](null, channel)
+            record.emit('close')
+            expect(channel.close).to.have.been.calledOnce
         })
     })
     
-    describe('create()', function ()
+    describe('get(sync=true)', function ()
     {
-        it('adds an id if one isn\'t already set', function ()
+        it('returns a record', function ()
         {
-            var things = new Collection(function () {}),
-                record = things.create({})
-            expect(record.get('id')).to.not.be.undefined
+            var coll = new Collection(sinon.stub()),
+                record = coll.get(123, true)
+            
+            expect(record).to.be.instanceof(Record)
+            expect(record.get('id')).to.equal(123)
         })
         
-        it('does not set id if one is already set', function ()
+        it('calls its service\'s get method with the sync options', function ()
         {
-            var things = new Collection(function () {}),
-                record = things.create({ id: 'foo' })
-            expect(record.get('id')).to.equal('foo')
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123, true)
+            
+            expect(service).to.have.been.calledOnce
+            expect(service.firstCall.args[0]).to.equal('get')
+            expect(service.firstCall.args[1]).to.deep.equal({ id: 123, sync: true })
         })
         
-        it('returns a SyncRecord if there are no cached records', function ()
+        it('updates record\'s fields on initial channel event', function ()
         {
-            var things = new Collection(function () {}),
-                record = things.create({ shoes: 'shiny' })
-            expect(record).to.be.instanceof(records.SyncRecord)
-            expect(record.get('shoes')).to.equal('shiny')
-        })
-        
-        it('calls its service\'s create method', function ()
-        {
-            var things = new Collection(sinon.stub()),
-                record = things.create({ shoes: 'shiny' })
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123, true),
+                channel = new SimpleEvents()
             
-            expect(things.service).to.have.been.calledOnce
-            expect(things.service.args[0][0]).to.equal('create')
-            expect(things.service.args[0][1]).to.deep.equal({'shoes':'shiny', id: record.get('id')})
-        })
-        
-        it('sets the record\'s error property if the create call fails', function ()
-        {
-            var service = sinon.stub().callsArgWith(2, 'some error'),
-                things = new Collection(service),
-                record = things.create({ shoes: 'shiny' })
-            
-            expect(record.error).to.equal('some error')
-        })
-        
-        it('returns a sync record if one is available', function ()
-        {
-            var things = new Collection(function () {})
-            things.get_list_cache.foo = { options: {}, add: sinon.stub().returns('dumb') }
-            things.watch_list_cache.foo = { options: {}, add: sinon.stub().returns('watch') }
-            things.sync_list_cache.foo = { options: {}, add: sinon.stub().returns('sync') }
-            
-            var record = things.create({})
-            expect(record).to.equal('sync')
-        })
-        
-        it('returns a watch record if no sync record is available', function ()
-        {
-            var things = new Collection(function () {})
-            things.get_list_cache.foo = { options: {}, add: sinon.stub().returns('dumb') }
-            things.watch_list_cache.foo = { options: {}, add: sinon.stub().returns('watch') }
-            
-            var record = things.create({})
-            expect(record).to.equal('watch')
-        })
-        
-        it('returns a dumb record if no watch record is available', function ()
-        {
-            var things = new Collection(function () {})
-            things.get_list_cache.foo = { options: {}, add: sinon.stub().returns('dumb') }
-            
-            var record = things.create({})
-            expect(record).to.equal('dumb')
-        })
-        
-        it('adds the list that matched the record to the watcher', function ()
-        {
-            watch.watcher = { push: sinon.stub() }
-            
-            var things = new Collection(function () {})
-            things.sync_list_cache.foo = { options: {}, add: sinon.stub().returns('sync') }
-            
-            var record = things.create({})
-            expect(watch.watcher.push).to.have.been.calledOnce
-            expect(watch.watcher.push).to.have.been.calledWith(things.sync_list_cache.foo)
-            
-            watch.watcher = null
-        })
-        
-        it('adds the SyncRecord to the watcher if no list is matched', function ()
-        {
-            watch.watcher = { push: sinon.stub() }
-            
-            var things = new Collection(function () {}),
-                record = things.create()
-            
-            expect(watch.watcher.push).to.have.been.calledOnce
-            expect(watch.watcher.push).to.have.been.calledWith(record)
-            
-            watch.watcher = null
-        })
-        
-        it('uses default fields if none are passed', function ()
-        {
-            var things = new Collection(function () {}, { fields: { foo: 'bar' } }),
-                record = things.create()
-            
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', { foo: 'bar' })
             expect(record.get('foo')).to.equal('bar')
+        })
+        
+        it('updates record\'s fields on pull channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123, true),
+                channel = new SimpleEvents()
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', {})
+            channel.emit('pull', [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }])
+            expect(record.get('foo')).to.equal('bar')
+        })
+        
+        
+        it('emits change event on record on pull channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123, true),
+                channel = new SimpleEvents(),
+                change = sinon.stub()
+            
+            record.on('change', change)
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', {})
+            channel.emit('pull', [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }])
+            expect(change).to.have.been.calledTwice
+            expect(change.firstCall.args[0]).to.equal(record)
+        })
+        
+        it('calls computation.async() on pull channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123, true),
+                channel = new SimpleEvents(),
+                async = sinon.stub()
+            
+            computation.on('async', async)
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', {})
+            channel.emit('pull', [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }])
+            expect(async).to.have.been.calledOnce
+        })
+        
+        it('emits a pull channel event when a record field is set', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123, true),
+                channel = new SimpleEvents()
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', {})
+            channel.emit = sinon.stub()
+            record.set('foo', 'bar')
+            expect(channel.emit).to.have.been.calledOnce
+            expect(channel.emit).to.have.been.calledWith(
+                'pull',
+                [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }]
+            )
+        })
+        
+        it('emits a pull channel event when a record is updated', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                record = coll.get(123, true),
+                channel = new SimpleEvents()
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', {})
+            channel.emit = sinon.stub()
+            record.update({ foo: 'bar' })
+            expect(channel.emit).to.have.been.calledOnce
+            expect(channel.emit).to.have.been.calledWith(
+                'pull',
+                [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }]
+            )
         })
     })
 
     describe('find()', function ()
     {
-        it('can return a DumbList', function ()
+        it('returns a List', function ()
         {
-            var things = new Collection(true),
-                list = things.find({ foo: 'bar' })
+            var coll = new Collection(sinon.stub()),
+                list = coll.find()
             
-            expect(list).to.be.instanceof(lists.DumbList)
-            expect(list.options).to.deep.equal({ foo: 'bar' })
+            expect(list).to.be.instanceof(List)
         })
         
-        it('can return a WatchList', function ()
+        it('calls its service\'s find method', function ()
         {
-            var things = new Collection(true),
-                list = things.find({ foo: 'bar', watch: true })
-            
-            expect(list).to.be.instanceof(lists.WatchList)
-            expect(list.options).to.deep.equal({ foo: 'bar', watch: true })
-        })
-        
-        it('can return a SyncList', function ()
-        {
-            var things = new Collection(true),
-                list = things.find({ foo: 'bar', sync: true })
-            
-            expect(list).to.be.instanceof(lists.SyncList)
-            expect(list.options).to.deep.equal({ foo: 'bar', sync: true })
-        })
-        
-        it('adds the list to the current watcher', function ()
-        {
-            watch.watcher = { push: sinon.stub() }
-            
-            var things = new Collection(true),
-                list = things.find({ foo: 'bar' })
-            
-            expect(watch.watcher.push).to.have.been.calledOnce
-            expect(watch.watcher.push.args[0][0]).to.equal(list)
-            
-            watch.watcher = null
-        })
-        
-        it('will return a cached list', function ()
-        {
-            var things = new Collection(true),
-                dumb_key = things.cache_key({foo: 'bar'}),
-                watch_key = things.cache_key({foo: 'bar', watch: true}),
-                sync_key = things.cache_key({foo: 'bar', sync: true})
-            
-            things.get_list_cache[dumb_key] = 'dumb'
-            things.watch_list_cache[watch_key] = 'watch'
-            things.sync_list_cache[sync_key] = 'sync'
-            
-            var dumb_list = things.find({foo: 'bar'}),
-                watch_list = things.find({foo: 'bar', watch: true}),
-                sync_list = things.find({foo: 'bar', sync: true})
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find({ foo: 'bar' })
                 
-            expect(dumb_list).to.equal('dumb')
-            expect(watch_list).to.equal('watch')
-            expect(sync_list).to.equal('sync')
+            expect(service).to.have.been.calledOnce
+            expect(service.firstCall.args[0]).to.equal('find')
+            expect(service.firstCall.args[1]).to.deep.equal({ foo: 'bar', watch: true })
+        })
+        
+        it('calls computation.start()', function ()
+        {
+            var coll = new Collection(sinon.stub()),
+                start = sinon.stub()
+            
+            computation.on('start', start)
+            
+            coll.find()
+            
+            expect(start).to.have.been.calledOnce
+        })
+        
+        it('emits an error event on the list if there is an error', function (done)
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find()
+            
+            list.on('error', function (err)
+            {
+                expect(err).to.equal('foo')
+                done()
+            })
+            
+            service.firstCall.args[2]('foo')
+        })
+        
+        it('calls computation.end() if there is an error', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                end = sinon.stub()
+            
+            computation.on('end', end)
+            
+            service.firstCall.args[2]('foo')
+            
+            expect(end).to.have.been.calledOnce
+        })
+        
+        it('emits an error event on list if there is an error channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents(),
+                error = sinon.stub()
+            
+            list.on('error', error)
+            service.firstCall.args[2](null, channel)
+            channel.emit('error', { foo: 'bar' })
+            expect(error).to.have.been.calledOnce
+            expect(error).to.have.been.calledWith({foo: 'bar'})
+        })
+        
+        it('calls computation.end() if there is an error channel event before initialization', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents(),
+                end = sinon.stub()
+            
+            computation.on('end', end)
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('error')
+            
+            expect(end).to.have.been.calledOnce
+        })
+        
+        it('calls computation.async() if there is an error channel event after initialization', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents(),
+                async = sinon.stub()
+            
+            computation.on('async', async)
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', [])
+            channel.emit('error')
+            
+            expect(async).to.have.been.calledOnce
+        })
+        
+        it('updates list on initial channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents()
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', [{id:1, foo:'bar'},{id: 2, skidoo:23}])
+            expect(list.length).to.equal(2)
+            expect(list[0]).to.be.instanceof(Record)
+            expect(list[0].get('id')).to.equal(1)
+            expect(list[0].get('foo')).to.equal('bar')
+            expect(list[1]).to.be.instanceof(Record)
+            expect(list[1].get('id')).to.equal(2)
+            expect(list[1].get('skidoo')).to.equal(23)
+        })
+        
+        it('emits change event on list on initial channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents(),
+                change = sinon.stub()
+            
+            list.on('change', change)
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', [])
+            expect(change).to.have.been.calledOnce
+            expect(change.firstCall.args[0]).to.equal(list)
+        })
+        
+        it('calls computation.end() on initial channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents(),
+                end = sinon.stub()
+            
+            computation.on('end', end)
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', [])
+            expect(end).to.have.been.calledOnce
+        })
+        
+        it('updates record in quiet mode on update channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents()
+            
+            list.push(new Record({ id: 1, foo: 'bar' }))
+            list[0].update = sinon.spy()
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('update', { id: 1, skidoo: 23 })
+            expect(list.length).to.equal(1)
+            expect(list[0].update).to.have.been.calledOnce
+            expect(list[0].update).to.have.been.calledWith({ id: 1, skidoo: 23 }, true)
+        })
+        
+        it('emits change event on list on update channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents(),
+                change = sinon.stub()
+            
+            list.push(new Record({ id: 1, foo: 'bar' }))
+            list.on('change', change)
+            service.firstCall.args[2](null, channel)
+            channel.emit('update', { id: 1, foo: 'baz' })
+            expect(change).to.have.been.calledOnce
+            expect(change.firstCall.args[0]).to.equal(list)
+        })
+        
+        it('calls computation.async() on update channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents(),
+                async = sinon.stub()
+            
+            list.push(new Record({ id: 1, foo: 'bar' }))
+            computation.on('async', async)
+            service.firstCall.args[2](null, channel)
+            channel.emit('update', { id: 1, foo: 'baz' })
+            expect(async).to.have.been.calledOnce
+        })
+        
+        it('creates a record and adds it to the list on insert channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents()
+                
+            list.remove = sinon.spy()
+            service.firstCall.args[2](null, channel)
+            channel.emit('insert', { id: 'foo' })
+            expect(list.length).to.equal(1)
+            expect(list[0].get('id')).to.equal('foo')
+        })
+        
+        it('emits change event on list on insert channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents(),
+                change = sinon.stub()
+            
+            list.on('change', change)
+            service.firstCall.args[2](null, channel)
+            channel.emit('insert', { id: 'foo' })
+            expect(change).to.have.been.calledOnce
+            expect(change.firstCall.args[0]).to.equal(list)
+        })
+        
+        it('calls computation.async() on insert channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents(),
+                async = sinon.stub()
+            
+            computation.on('async', async)
+            service.firstCall.args[2](null, channel)
+            channel.emit('insert', { id: 'foo' })
+            expect(async).to.have.been.calledOnce
+        })
+        
+        it('sets a records deleted property and removes it from the list on delete channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents()
+            
+            list.push(new Record({ id: 1 }))
+            list.push(new Record({ id: 2 }))
+            list.push(new Record({ id: 3 }))
+            list.remove = sinon.spy()
+            var record = list[1]
+            service.firstCall.args[2](null, channel)
+            channel.emit('delete', 2)
+            expect(record.deleted).to.be.true
+            expect(list.remove).to.have.been.calledOnce
+            expect(list.remove).to.have.been.calledWith(2)
+        })
+        
+        it('emits delete event on list on delete channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents(),
+                deleted = sinon.stub()
+            
+            list.push(new Record({ id: 1 }))
+            list.on('delete', deleted)
+            service.firstCall.args[2](null, channel)
+            channel.emit('delete', 1)
+            expect(deleted).to.have.been.calledOnce
+            expect(deleted.firstCall.args[0]).to.equal(list)
+        })
+        
+        it('calls computation.async() on delete channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents(),
+                async = sinon.stub()
+            
+            list.push(new Record({ id: 1 }))
+            computation.on('async', async)
+            service.firstCall.args[2](null, channel)
+            channel.emit('delete', 1)
+            expect(async).to.have.been.calledOnce
+        })
+        
+        it('calls channel.close() on list close event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find(),
+                channel = new SimpleEvents()
+            
+            channel.close = sinon.stub()
+            service.firstCall.args[2](null, channel)
+            list.emit('close')
+            expect(channel.close).to.have.been.calledOnce
+        })
+    })
+    
+    describe('find(sync=true)', function ()
+    {
+        it('calls its service\'s find method in sync mode', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find({ foo: 'bar', sync: true })
+                
+            expect(service).to.have.been.calledOnce
+            expect(service.firstCall.args[0]).to.equal('find')
+            expect(service.firstCall.args[1]).to.deep.equal({ foo: 'bar', sync: true })
+        })
+        
+        it('updates record\'s fields on pull channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find({ sync: true }),
+                channel = new SimpleEvents()
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', [{id: 1}])
+            channel.emit('pull', 1, [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }])
+            expect(list[0].get('foo')).to.equal('bar')
+        })
+        
+        it('emits change event on record on pull channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find({ sync: true }),
+                channel = new SimpleEvents(),
+                change = sinon.stub()
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', [{id: 1}])
+            var record = list[0]
+            record.on('change', change)
+            channel.emit('pull', 1, [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }])
+            expect(change).to.have.been.calledOnce
+            expect(change.firstCall.args[0]).to.equal(record)
+        })
+        
+        it('emits change event on list on pull channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find({ sync: true }),
+                channel = new SimpleEvents(),
+                change = sinon.stub()
+            
+            list.on('change', change)
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', [{id: 1}])
+            channel.emit('pull', 1, [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }])
+            expect(change).to.have.been.calledTwice
+            expect(change.firstCall.args[0]).to.equal(list)
+        })
+        
+        it('calls computation.async() on pull channel event', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find({ sync: true }),
+                channel = new SimpleEvents(),
+                async = sinon.stub()
+            
+            computation.on('async', async)
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', [{id: 1}])
+            channel.emit('pull', 1, [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }])
+            expect(async).to.have.been.calledOnce
+        })
+        
+        it('emits a pull channel event when a record field is set', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find({ sync: true }),
+                channel = new SimpleEvents()
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', [{id: 1}])
+            var record = list[0]
+            channel.emit = sinon.stub()
+            record.set('foo', 'bar')
+            expect(channel.emit).to.have.been.calledOnce
+            expect(channel.emit).to.have.been.calledWith(
+                'pull',
+                1,
+                [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }]
+            )
+        })
+        
+        it('emits a pull channel event when a record is updated', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                list = coll.find({ sync: true }),
+                channel = new SimpleEvents()
+            
+            service.firstCall.args[2](null, channel)
+            channel.emit('initial', [{id: 1}])
+            var record = list[0]
+            channel.emit = sinon.stub()
+            record.update({ foo: 'bar' })
+            expect(channel.emit).to.have.been.calledOnce
+            expect(channel.emit).to.have.been.calledWith(
+                'pull',
+                1,
+                [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }]
+            )
+        })
+    })
+    
+    describe('create()', function ()
+    {
+        it('returns nothing', function ()
+        {
+            var coll = new Collection(sinon.stub())
+            expect(coll.create({})).to.be.undefined
+        })
+        
+        it('calls its service\'s create method', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service)
+            
+            coll.create({id: 1, foo:'bar'})
+            expect(service).to.have.been.calledOnce
+            expect(service.firstCall.args[0]).to.equal('create')
+            expect(service.firstCall.args[1]).to.deep.equal({ id:1, foo:'bar'})
+        })
+        
+        it('calls its callback with an error if there is a service error', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                done = sinon.spy()
+                
+            coll.create({}, done)
+            service.firstCall.args[2]('some error')
+            expect(done).to.have.been.calledOnce
+            expect(done).to.have.been.calledWith('some error')
+        })
+        
+        it('calls its callback with the results if there is no error', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                done = sinon.spy()
+                
+            coll.create({}, done)
+            service.firstCall.args[2](null, { id: 1, foo: 'bar' })
+            expect(done).to.have.been.calledOnce
+            expect(done.firstCall.args[0]).to.be.null
+            expect(done.firstCall.args[1]).to.deep.equal({ id: 1, foo: 'bar' })
+        })
+        
+        it('adds an id if fields doesn\'t already have one', function ()
+        {
+            var service = sinon.stub(),
+                coll = new Collection(service)
+            
+            var fields = { foo: 'bar' }
+            coll.create(fields)
+            expect(fields.id).to.not.be.undefined
         })
     })
     
     describe('delete()', function ()
     {
+        it('returns nothing', function ()
+        {
+            var coll = new Collection(sinon.stub())
+            expect(coll.delete()).to.be.undefined
+        })
+        
         it('calls its service\'s delete method', function ()
         {
-            var things = new Collection(sinon.stub())
-            things.delete(123)
-            expect(things.service).to.have.been.calledOnce
-            expect(things.service.firstCall.args).to.deep.equal(
-                ['delete', { id: 123 }]
-            )
+            var service = sinon.stub(),
+                coll = new Collection(service)
+            
+            coll.delete(1)
+            expect(service).to.have.been.calledOnce
+            expect(service.firstCall.args[0]).to.equal('delete')
+            expect(service.firstCall.args[1]).to.deep.equal({ id: 1 })
         })
         
-        it('sets cached records\' deleted properties', function ()
+        it('calls its callback with an error if there is a service error', function ()
         {
-            var things = new Collection(sinon.stub())
-            things.get_one_cache[123] = { deleted: false }
-            things.watch_one_cache[123] = { deleted: false }
-            things.sync_one_cache[123] = { deleted: false }
-            
-            things.delete(123)
-            
-            expect(things.get_one_cache[123].deleted).to.be.true
-            expect(things.watch_one_cache[123].deleted).to.be.true
-            expect(things.sync_one_cache[123].deleted).to.be.true
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                done = sinon.spy()
+                
+            coll.delete(1, done)
+            service.firstCall.args[2]('some error')
+            expect(done).to.have.been.calledOnce
+            expect(done).to.have.been.calledWith('some error')
         })
         
-        it('calls delete() on all cached lists', function ()
+        it('calls its callback with the results if there is no error', function ()
         {
-            var things = new Collection(sinon.stub())
-            things.get_list_cache.foo = { delete: sinon.stub() }
-            things.watch_list_cache.foo = { delete: sinon.stub() }
-            things.sync_list_cache.foo = { delete: sinon.stub() }
-            
-            things.delete(123)
-            
-            expect(things.get_list_cache.foo.delete).to.have.been.calledOnce
-            expect(things.get_list_cache.foo.delete).to.have.been.calledWith(123)
-            expect(things.watch_list_cache.foo.delete).to.have.been.calledOnce
-            expect(things.watch_list_cache.foo.delete).to.have.been.calledWith(123)
-            expect(things.sync_list_cache.foo.delete).to.have.been.calledOnce
-            expect(things.sync_list_cache.foo.delete).to.have.been.calledWith(123)
+            var service = sinon.stub(),
+                coll = new Collection(service),
+                done = sinon.spy()
+                
+            coll.delete(1, done)
+            service.firstCall.args[2](null, { id: 1 })
+            expect(done).to.have.been.calledOnce
+            expect(done.firstCall.args[0]).to.be.null
+            expect(done.firstCall.args[1]).to.deep.equal(1)
         })
     })
 })
