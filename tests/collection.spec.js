@@ -927,4 +927,56 @@ describe('Collection', function ()
             expect(done.firstCall.args[1]).to.deep.equal(1)
         })
     })
+    
+    it('keeps references to lists', function ()
+    {
+        var coll = new Collection(sinon.stub()),
+            list = coll.find()
+        
+        expect(coll.lists).to.not.be.undefined
+        expect(coll.lists).to.deep.equal([list])
+    })
+    
+    it('removes referenced lists when they are closed', function ()
+    {
+        var coll = new Collection(sinon.stub()),
+            list = coll.find()
+        
+        list.emit('close')
+        
+        expect(coll.lists).to.deep.equal([])
+    })
+    
+    it('adds newly created records to existing lists with matching queries', function ()
+    {
+        var coll = new Collection(sinon.stub()),
+            list_one = coll.find({ index: 'foo', value: 'bar' }),
+            list_two = coll.find({ index: 'foo', value: 'baz' })
+        
+        var record = coll.create({ foo: 'bar' })
+        
+        expect(list_one.slice(0)).to.deep.equal([record])
+        expect(list_two.slice(0)).to.deep.equal([])
+    })
+    
+    it('removes records from existing lists when they are deleted', function ()
+    {
+        var coll = new Collection(sinon.stub()),
+            list_one = coll.find({ index: 'skidoo', value: 23 }),
+            list_two = coll.find({ index: 'id', value: 'foo' }),
+            list_three = coll.find({ index: 'skidoo', value: 50 }),
+            record = coll.create({ id: 'foo', skidoo: 23 })
+        
+        coll.create({ skidoo: 50 })
+        
+        expect(list_one.length).to.equal(1)
+        expect(list_two.length).to.equal(1)
+        expect(list_three.length).to.equal(1)
+        
+        coll.delete(record.get('id'))
+        
+        expect(list_one.length).to.equal(0)
+        expect(list_two.length).to.equal(0)
+        expect(list_three.length).to.equal(1)
+    })
 })
