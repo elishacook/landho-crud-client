@@ -881,6 +881,14 @@ describe('Collection', function ()
             coll.create(fields)
             expect(fields.id).to.not.be.undefined
         })
+        
+        it('can use default fields', function ()
+        {
+            var coll = new Collection(sinon.stub(), { fields: { foo: 'bar' } }),
+                record = coll.create()
+            
+            expect(record.get('foo')).to.equal('bar')
+        })
     })
     
     describe('delete()', function ()
@@ -978,5 +986,23 @@ describe('Collection', function ()
         expect(list_one.length).to.equal(0)
         expect(list_two.length).to.equal(0)
         expect(list_three.length).to.equal(1)
+    })
+    
+    it('can add methods to returned records', function ()
+    {
+        var coll = new Collection(sinon.stub(), {
+            methods:  {
+                foo: function ()
+                {
+                    return this.get('skidoo') * 2
+                }
+            }
+        })
+        
+        var record = coll.create({ skidoo: 23 })
+        expect(record).to.be.instanceof(Record)
+        expect(record).to.have.property('foo')
+        expect(record.foo).to.be.instanceof(Function)
+        expect(record.foo()).to.equal(46)
     })
 })
