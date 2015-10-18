@@ -5,6 +5,14 @@ var Collection = require('../lib/collection'),
     List = require('../lib/list'),
     computation = require('../lib/computation'),
     SimpleEvents = require('@elishacook/simple-events')
+
+function fake_channel()
+{
+    var channel = new SimpleEvents()
+    channel.close = sinon.spy()
+    return channel
+}
+
     
 describe('Collection', function ()
 {
@@ -87,7 +95,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 error = sinon.stub()
             
             record.on('error', error)
@@ -102,7 +110,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 end = sinon.stub()
             
             computation.on('end', end)
@@ -118,7 +126,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 async = sinon.stub()
             
             computation.on('async', async)
@@ -135,7 +143,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             record.update = sinon.spy()
             service.firstCall.args[2](null, channel)
@@ -149,7 +157,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 change = sinon.stub()
             
             record.on('change', change)
@@ -164,7 +172,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 end = sinon.stub()
             
             computation.on('end', end)
@@ -178,7 +186,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             record.update = sinon.spy()
             service.firstCall.args[2](null, channel)
@@ -192,7 +200,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 change = sinon.stub()
             
             record.on('change', change)
@@ -207,7 +215,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 async = sinon.stub()
             
             computation.on('async', async)
@@ -221,7 +229,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             service.firstCall.args[2](null, channel)
             channel.emit('delete')
@@ -233,7 +241,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 deleted = sinon.stub()
             
             record.on('delete', deleted)
@@ -248,7 +256,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 async = sinon.stub()
             
             computation.on('async', async)
@@ -262,7 +270,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             channel.close = sinon.stub()
             service.firstCall.args[2](null, channel)
@@ -298,7 +306,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123, true),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             service.firstCall.args[2](null, channel)
             channel.emit('initial', { foo: 'bar' })
@@ -310,7 +318,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123, true),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             service.firstCall.args[2](null, channel)
             channel.emit('initial', {})
@@ -324,7 +332,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123, true),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 change = sinon.stub()
             
             record.on('change', change)
@@ -340,7 +348,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123, true),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 async = sinon.stub()
             
             computation.on('async', async)
@@ -355,7 +363,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123, true),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             service.firstCall.args[2](null, channel)
             channel.emit('initial', {})
@@ -373,7 +381,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 record = coll.get(123, true),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             service.firstCall.args[2](null, channel)
             channel.emit('initial', {})
@@ -454,7 +462,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 error = sinon.stub()
             
             list.on('error', error)
@@ -469,7 +477,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 end = sinon.stub()
             
             computation.on('end', end)
@@ -485,7 +493,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 async = sinon.stub()
             
             computation.on('async', async)
@@ -502,7 +510,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             service.firstCall.args[2](null, channel)
             channel.emit('initial', [{id:1, foo:'bar'},{id: 2, skidoo:23}])
@@ -520,7 +528,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 change = sinon.stub()
             
             list.on('change', change)
@@ -535,7 +543,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 end = sinon.stub()
             
             computation.on('end', end)
@@ -549,7 +557,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             list.push(new Record({ id: 1, foo: 'bar' }))
             list[0].update = sinon.spy()
@@ -566,7 +574,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 change = sinon.stub()
             
             list.push(new Record({ id: 1, foo: 'bar' }))
@@ -582,7 +590,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 async = sinon.stub()
             
             list.push(new Record({ id: 1, foo: 'bar' }))
@@ -597,7 +605,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents()
+                channel = fake_channel()
                 
             list.remove = sinon.spy()
             service.firstCall.args[2](null, channel)
@@ -611,7 +619,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 change = sinon.stub()
             
             list.on('change', change)
@@ -626,7 +634,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 async = sinon.stub()
             
             computation.on('async', async)
@@ -640,7 +648,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             list.push(new Record({ id: 1 }))
             list.push(new Record({ id: 2 }))
@@ -659,7 +667,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 deleted = sinon.stub()
             
             list.push(new Record({ id: 1 }))
@@ -675,7 +683,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 async = sinon.stub()
             
             list.push(new Record({ id: 1 }))
@@ -690,7 +698,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find(),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             channel.close = sinon.stub()
             service.firstCall.args[2](null, channel)
@@ -717,11 +725,11 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find({ sync: true }),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             service.firstCall.args[2](null, channel)
             channel.emit('initial', [{id: 1}])
-            channel.emit('pull', 1, [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }])
+            channel.emit('pull', { id: 1, edits: [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }]})
             expect(list[0].get('foo')).to.equal('bar')
         })
         
@@ -730,14 +738,14 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find({ sync: true }),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 change = sinon.stub()
             
             service.firstCall.args[2](null, channel)
             channel.emit('initial', [{id: 1}])
             var record = list[0]
             record.on('change', change)
-            channel.emit('pull', 1, [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }])
+            channel.emit('pull', { id: 1, edits: [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }]})
             expect(change).to.have.been.calledOnce
             expect(change.firstCall.args[0]).to.equal(record)
         })
@@ -747,13 +755,13 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find({ sync: true }),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 change = sinon.stub()
             
             list.on('change', change)
             service.firstCall.args[2](null, channel)
             channel.emit('initial', [{id: 1}])
-            channel.emit('pull', 1, [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }])
+            channel.emit('pull', { id: 1, edits: [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }]})
             expect(change).to.have.been.calledTwice
             expect(change.firstCall.args[0]).to.equal(list)
         })
@@ -763,13 +771,13 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find({ sync: true }),
-                channel = new SimpleEvents(),
+                channel = fake_channel(),
                 async = sinon.stub()
             
             computation.on('async', async)
             service.firstCall.args[2](null, channel)
             channel.emit('initial', [{id: 1}])
-            channel.emit('pull', 1, [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }])
+            channel.emit('pull', { id: 1, edits: [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }]})
             expect(async).to.have.been.calledOnce
         })
         
@@ -778,7 +786,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find({ sync: true }),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             service.firstCall.args[2](null, channel)
             channel.emit('initial', [{id: 1}])
@@ -788,8 +796,10 @@ describe('Collection', function ()
             expect(channel.emit).to.have.been.calledOnce
             expect(channel.emit).to.have.been.calledWith(
                 'pull',
-                1,
-                [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }]
+                {
+                    id: 1,
+                    edits: [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }]
+                }
             )
         })
         
@@ -798,7 +808,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service),
                 list = coll.find({ sync: true }),
-                channel = new SimpleEvents()
+                channel = fake_channel()
             
             service.firstCall.args[2](null, channel)
             channel.emit('initial', [{id: 1}])
@@ -808,18 +818,22 @@ describe('Collection', function ()
             expect(channel.emit).to.have.been.calledOnce
             expect(channel.emit).to.have.been.calledWith(
                 'pull',
-                1,
-                [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }]
+                {
+                    id: 1,
+                    edits: [{ version: 0, other_version: 0, delta: { foo: ['bar'] } }]
+                }
             )
         })
     })
     
     describe('create()', function ()
     {
-        it('returns nothing', function ()
+        it('returns a record', function ()
         {
-            var coll = new Collection(sinon.stub())
-            expect(coll.create({})).to.be.undefined
+            var coll = new Collection(sinon.stub()),
+                record = coll.create({ foo: 'bar' })
+            expect(record).to.be.instanceof(Record)
+            expect(record.get('foo')).to.equal('bar')
         })
         
         it('calls its service\'s create method', function ()
