@@ -93,26 +93,6 @@ describe('Record', function ()
         expect(record.fields).to.equal(fields)
     })
     
-    it('is not dirty by default', function ()
-    {
-        var record = new Record()
-        expect(record.dirty).to.be.false
-    })
-    
-    it('is dirty after setting a field', function ()
-    {
-        var record = new Record({})
-        record.set('foo', 'bar')
-        expect(record.dirty).to.be.true
-    })
-    
-    it('is dirty after an update', function ()
-    {
-        var record = new Record({})
-        record.update({ foo: 'bar' })
-        expect(record.dirty).to.be.true
-    })
-    
     it('has a deleted property', function ()
     {
         var record = new Record()
@@ -127,5 +107,53 @@ describe('Record', function ()
         record.on('close', close)
         record.close()
         expect(close).to.have.been.calledOnce
+    })
+    
+    it('has an abort method', function ()
+    {
+        var record = new Record(),
+            onchange = sinon.stub()
+        
+        record.on('local-change', onchange)
+        record.abort({ foo: { old_val: 23 } })
+        expect(record.get('foo')).to.equal(23)
+        expect(onchange).to.not.have.been.called
+    })
+    
+    it('has a commit method', function ()
+    {
+        var record = new Record(),
+            onchange = sinon.stub()
+        
+        record.set('foo', 'bar')
+        record.on('local-change', onchange)
+        record.commit({ foo: 'baz' })
+        expect(record.get('foo')).to.equal('bar')
+        expect(onchange).to.have.been.calledOnce
+        expect(onchange).to.have.been.calledWith(record)
+    })
+    
+    it('has an undo method', function ()
+    {
+        var record = new Record(),
+            onchange = sinon.stub()
+        
+        record.on('local-change', onchange)
+        record.undo({ foo: { old_val: 23 } })
+        expect(record.get('foo')).to.equal(23)
+        expect(onchange).to.have.been.calledOnce
+        expect(onchange).to.have.been.calledWith(record)
+    })
+    
+    it('has a redo method', function ()
+    {
+        var record = new Record(),
+            onchange = sinon.stub()
+        
+        record.on('local-change', onchange)
+        record.redo({ foo: { new_val: 23 } })
+        expect(record.get('foo')).to.equal(23)
+        expect(onchange).to.have.been.calledOnce
+        expect(onchange).to.have.been.calledWith(record)
     })
 })

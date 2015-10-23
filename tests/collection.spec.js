@@ -896,7 +896,7 @@ describe('Collection', function ()
         it('returns nothing', function ()
         {
             var coll = new Collection(sinon.stub())
-            expect(coll.delete()).to.be.undefined
+            expect(coll.delete(new Record({id:1}))).to.be.undefined
         })
         
         it('calls its service\'s delete method', function ()
@@ -904,7 +904,7 @@ describe('Collection', function ()
             var service = sinon.stub(),
                 coll = new Collection(service)
             
-            coll.delete(1)
+            coll.delete(new Record({id:1}))
             expect(service).to.have.been.calledOnce
             expect(service.firstCall.args[0]).to.equal('delete')
             expect(service.firstCall.args[1]).to.deep.equal({ id: 1 })
@@ -916,7 +916,7 @@ describe('Collection', function ()
                 coll = new Collection(service),
                 done = sinon.spy()
                 
-            coll.delete(1, done)
+            coll.delete(new Record({id:1}), done)
             service.firstCall.args[2]('some error')
             expect(done).to.have.been.calledOnce
             expect(done).to.have.been.calledWith('some error')
@@ -926,13 +926,14 @@ describe('Collection', function ()
         {
             var service = sinon.stub(),
                 coll = new Collection(service),
-                done = sinon.spy()
+                done = sinon.spy(),
+                record = new Record({id:1})
                 
-            coll.delete(1, done)
+            coll.delete(record, done)
             service.firstCall.args[2](null, { id: 1 })
             expect(done).to.have.been.calledOnce
             expect(done.firstCall.args[0]).to.be.null
-            expect(done.firstCall.args[1]).to.deep.equal(1)
+            expect(done.firstCall.args[1]).to.equal(record)
         })
     })
     
@@ -981,7 +982,7 @@ describe('Collection', function ()
         expect(list_two.length).to.equal(1)
         expect(list_three.length).to.equal(1)
         
-        coll.delete(record.get('id'))
+        coll.delete(record)
         
         expect(list_one.length).to.equal(0)
         expect(list_two.length).to.equal(0)
@@ -1004,5 +1005,141 @@ describe('Collection', function ()
         expect(record).to.have.property('foo')
         expect(record.foo).to.be.instanceof(Function)
         expect(record.foo()).to.equal(46)
+    })
+    
+    describe('abort()', function ()
+    {
+        it('it locally deletes a created record', function ()
+        {
+            var coll = new Collection(sinon.stub()),
+                record = new Record({id:123})
+                
+            coll.remote_delete = sinon.stub()
+            coll.local_delete = sinon.stub()
+            
+            coll.abort({ action: 'create', record: record })
+            
+            expect(coll.remote_delete).to.not.have.been.called
+            expect(coll.local_delete).to.have.been.calledOnce
+            expect(coll.local_delete).to.have.been.calledWith(record)
+        })
+        
+        it('it locally recreates a deleted record', function ()
+        {
+            var coll = new Collection(sinon.stub()),
+                record = new Record({id:123})
+                
+            coll.remote_create = sinon.stub()
+            coll.local_create = sinon.stub()
+            
+            coll.abort({ action: 'delete', record: record })
+            
+            expect(coll.remote_create).to.not.have.been.called
+            expect(coll.local_create).to.have.been.calledOnce
+            expect(coll.local_create).to.have.been.calledWith(record.fields)
+        })
+    })
+    
+    describe('commit()', function ()
+    {
+        it('it remotely creates a locally created record', function ()
+        {
+            var coll = new Collection(sinon.stub()),
+                record = new Record({id:123})
+                
+            coll.remote_create = sinon.stub()
+            coll.local_create = sinon.stub()
+            
+            coll.commit({ action: 'create', record: record, done: 'callback' })
+            
+            expect(coll.local_create).to.not.have.been.called
+            expect(coll.remote_create).to.have.been.calledOnce
+            expect(coll.remote_create).to.have.been.calledWith(record.fields, 'callback')
+        })
+        
+        it('it remotely deletes a locally deleted record', function ()
+        {
+            var coll = new Collection(sinon.stub()),
+                record = new Record({id:123})
+                
+            coll.remote_delete = sinon.stub()
+            coll.local_delete = sinon.stub()
+            
+            coll.commit({ action: 'delete', record: record, done: 'callback' })
+            
+            expect(coll.local_delete).to.not.have.been.called
+            expect(coll.remote_delete).to.have.been.calledOnce
+            expect(coll.remote_delete).to.have.been.calledWith(record, 'callback')
+        })
+    })
+    
+    describe('undo()', function ()
+    {
+        it('it locally and remotely deletes a created record', function ()
+        {
+            var coll = new Collection(sinon.stub()),
+                record = new Record({id:123})
+                
+            coll.remote_delete = sinon.stub()
+            coll.local_delete = sinon.stub()
+            
+            coll.undo({ action: 'create', record: record, done: 'callback' })
+            
+            expect(coll.local_delete).to.have.been.calledOnce
+            expect(coll.local_delete).to.have.been.calledWith(record)
+            expect(coll.remote_delete).to.have.been.calledOnce
+            expect(coll.remote_delete).to.have.been.calledWith(record)
+        })
+        
+        it('it locally and remotely creates a deleted record', function ()
+        {
+            var coll = new Collection(sinon.stub()),
+                record = new Record({id:123})
+                
+            coll.remote_create = sinon.stub()
+            coll.local_create = sinon.stub()
+            
+            coll.undo({ action: 'delete', record: record, done: 'callback' })
+            
+            expect(coll.local_create).to.have.been.calledOnce
+            expect(coll.local_create).to.have.been.calledWith(record.fields)
+            expect(coll.remote_create).to.have.been.calledOnce
+            expect(coll.remote_create).to.have.been.calledWith(record.fields)
+        })
+    })
+    
+    describe('redo()', function ()
+    {
+        it('it locally and remotely redeletes a deleted record', function ()
+        {
+            var coll = new Collection(sinon.stub()),
+                record = new Record({id:123})
+                
+            coll.remote_delete = sinon.stub()
+            coll.local_delete = sinon.stub()
+            
+            coll.redo({ action: 'delete', record: record, done: 'callback' })
+            
+            expect(coll.local_delete).to.have.been.calledOnce
+            expect(coll.local_delete).to.have.been.calledWith(record)
+            expect(coll.remote_delete).to.have.been.calledOnce
+            expect(coll.remote_delete).to.have.been.calledWith(record)
+        })
+        
+        it('it locally and remotely recreates a created record', function ()
+        {
+            var coll = new Collection(sinon.stub()),
+                record = new Record({id:123})
+                
+            coll.remote_create = sinon.stub()
+            coll.local_create = sinon.stub()
+            
+            coll.redo({ action: 'create', record: record, done: 'callback' })
+            
+            expect(coll.local_create).to.have.been.calledOnce
+            expect(coll.local_create).to.have.been.calledWith(record.fields)
+            expect(coll.remote_create).to.have.been.calledOnce
+            expect(coll.remote_create).to.have.been.calledWith(record.fields)
+        })
     })
 })
